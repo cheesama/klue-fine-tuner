@@ -1,4 +1,5 @@
+tqdm
 datasets
 transformers
 
-tensorflow
+pyorch-lightning
