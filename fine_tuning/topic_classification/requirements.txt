@@ -2,6 +2,6 @@ tqdm
 fastapi
 requests
 
-datasets
 transformers
-pyorch-lightning
+#datasets
+#pytorch-lightning

@@ -100,6 +100,12 @@ class TopicModel(pl.LightningModule):
 
         return tokens[: self.max_token_length]
 
+    def predict(self, text):
+        tokens = self.prepare_token_ids(torch.LongTensor([text]))
+        pred = self.forward(tokens)
+
+        return torch.argmax(pred[0])
+
     def training_step(self, batch, batch_idx):
         self.model.train()
         token_ids, labels = batch
