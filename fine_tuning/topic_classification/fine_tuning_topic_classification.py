@@ -113,7 +113,7 @@ class TopicModel(pl.LightningModule):
         pred_ids = self.forward(token_ids)
 
         loss = self.loss_func(pred_ids, labels.squeeze(1))
-        self.log("train/loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
 
         return loss
 
@@ -125,7 +125,7 @@ class TopicModel(pl.LightningModule):
             pred_ids = self.forward(token_ids)
 
             loss = self.loss_func(pred_ids, labels.squeeze(1))
-            self.log("val/loss", loss, prog_bar=True)
+            self.log("val_loss", loss, prog_bar=True)
 
             return loss
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
-    checkpoint_callback = ModelCheckpoint(save_top_k=1)
+    checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor='val_loss')
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
