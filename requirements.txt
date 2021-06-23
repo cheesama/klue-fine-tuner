@@ -4,4 +4,4 @@ requests
 
 datasets
 transformers
-pyorch-lightning
+pytorch-lightning
