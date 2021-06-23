@@ -1,4 +1,4 @@
-FROM pytorchlightning/pytorch_lightning
+FROM pytorchlightning/pytorch_lightning:base-conda-py3.8-torch1.7
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt

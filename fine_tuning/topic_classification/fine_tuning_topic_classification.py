@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM, TrainingArguments,
 from transformers import AutoModelForSequenceClassification
 from transformers import AdamW, get_scheduler
 from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm.auto import tqdm
 
 import torch
@@ -159,11 +160,13 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
+    checkpoint_callback = ModelCheckpoint(save_top_k=1)
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
         accelerator="ddp",
         max_epochs=args.epochs,
+        callbacks=[checkpoint_callback]
     )
 
     trainer.fit(model, train_loader, valid_loader)
