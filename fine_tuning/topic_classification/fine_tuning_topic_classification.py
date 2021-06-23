@@ -132,9 +132,9 @@ class TopicModel(pl.LightningModule):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lr", default=1e-4)
-    parser.add_argument("--epochs", default=10)
-    parser.add_argument("--batch_size", default=2)
+    parser.add_argument("--lr", default=1e-4, type=float)
+    parser.add_argument("--epochs", default=10, type=int)
+    parser.add_argument("--batch_size", default=2, type=int)
     args = parser.parse_args()
 
     # model preparation
