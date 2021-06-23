@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 # checkpoints
-*/lightning_logs/*
+**/lightning_logs/
