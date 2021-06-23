@@ -1,0 +1,7 @@
+tqdm
+fastapi
+requests
+
+transformers
+#datasets
+#pytorch-lightning
