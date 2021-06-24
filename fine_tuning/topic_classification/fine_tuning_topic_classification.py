@@ -74,12 +74,14 @@ class TopicModel(pl.LightningModule):
         else:
             raise ValueError("backbone size should be one of [small, base, large]")
 
-        self.model.classifier.out_proj = nn.Linear(self.model.classifier.out_proj.in_features, self.topic_class_num)
+        self.model.classifier.out_proj = nn.Linear(
+            self.model.classifier.out_proj.in_features, self.topic_class_num
+        )
         nn.init.xavier_uniform_(self.model.classifier.out_proj.weight)
 
         self.save_hyperparameters()
 
-        print (self.model)
+        print(self.model)
 
     def forward(self, x):
         pred = self.model(x).logits
@@ -134,7 +136,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--lr", default=1e-4, type=float)
     parser.add_argument("--epochs", default=10, type=int)
-    parser.add_argument("--batch_size", default=64, type=int) # small model, 12GB GPU based
+    # parser.add_argument("--batch_size", default=64, type=int) # small model, 12GB GPU based
+    parser.add_argument("--batch_size", default=2, type=int)
     args = parser.parse_args()
 
     # model preparation
@@ -160,13 +163,18 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
-    checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor='val_loss')
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=1,
+        monitor="val_loss",
+        dirpath="./",
+        filename="klue_topic_classification",
+    )
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
         accelerator="ddp",
         max_epochs=args.epochs,
-        callbacks=[checkpoint_callback]
+        callbacks=[checkpoint_callback],
     )
 
     trainer.fit(model, train_loader, valid_loader)
