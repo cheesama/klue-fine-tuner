@@ -45,7 +45,12 @@ class TopicDataset(Dataset):
 
 class TopicModel(pl.LightningModule):
     def __init__(
-        self, backbone_size="small", lr=1e-4, max_token_length=256, topic_class_num=7
+        self,
+        backbone_size="small",
+        lr=1e-4,
+        max_token_length=256,
+        topic_class_num=7,
+        class_dict=None,
     ):
         super().__init__()
 
@@ -53,6 +58,7 @@ class TopicModel(pl.LightningModule):
         self.lr = lr
         self.max_token_length = max_token_length
         self.topic_class_num = topic_class_num  # based on KLUE ynat dataset
+        self.class_dict = None
 
         # model & tokenizer prepare
         self.backbone_size = backbone_size
@@ -81,8 +87,6 @@ class TopicModel(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        print(self.model)
-
     def forward(self, x):
         pred = self.model(x).logits
         return pred
@@ -107,7 +111,13 @@ class TopicModel(pl.LightningModule):
         tokens = self.prepare_token_ids(torch.LongTensor([text]))
         pred = self.forward(tokens)
 
-        return torch.argmax(pred[0])
+        class_idx = torch.argmax(pred[0])
+
+        if self.class_dict is not None:
+            label = self.class_dict[class_idx]
+            return {"label": label, "class_idx": class_idx}
+
+        return {"class_idx": class_idx}
 
     def training_step(self, batch, batch_idx):
         self.model.train()
