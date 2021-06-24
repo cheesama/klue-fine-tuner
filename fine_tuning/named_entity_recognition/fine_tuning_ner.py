@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM, TrainingArguments,
 from transformers import AutoModelForTokenClassification
 from transformers import AdamW, get_scheduler
 from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm.auto import tqdm
 
 import torch
@@ -11,7 +12,6 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import argparse
 import multiprocessing
-
 
 class NERDataset(Dataset):
     def __init__(self, tokenizer, data_list, max_token_length=256, o_tag_id=12):
@@ -49,7 +49,7 @@ class NERDataset(Dataset):
 
 class NERModel(pl.LightningModule):
     def __init__(
-        self, backbone_size="small", lr=5e-5, max_token_length=256, entity_class_num=13
+        self, backbone_size="small", lr=5e-5, max_token_length=256, entity_class_num=13, entity_dict=None
     ):
         super().__init__()
 
@@ -57,6 +57,7 @@ class NERModel(pl.LightningModule):
         self.lr = lr
         self.max_token_length = max_token_length
         self.entity_class_num = entity_class_num  # based on KLUE NER dataset
+        self.entity_dict = entity_dict
 
         # model & tokenizer prepare
         self.backbone_size = backbone_size
@@ -103,7 +104,25 @@ class NERModel(pl.LightningModule):
                 self.max_token_length - len(tokens)
             )
 
-        return tokens[: self.max_token_length]
+        return torch.LongTensor(tokens[: self.max_token_length]).unsqueeze(0)
+
+    def predict(self, query):
+        with torch.no_grad():
+            tokens = self.prepare_token_ids(query)
+            result = self.forward(tokens)[0]
+            pred_entities = torch.argmax(result, dim=1).tolist()
+
+            result = []
+            for token, entity_id in zip(tokens, pred_entities):
+                item = {}
+                item['token'] = token
+                item['entity_idx'] = entity_id
+                if self.entity_dict is not Nont:
+                    item['entity'] = self.entity_dict[entity_id]
+
+                result.append(item)
+
+            return result
 
     def training_step(self, batch, batch_idx):
         self.model.train()
@@ -158,11 +177,16 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=1, monitor="val_loss", dirpath="./", filename="klue_ner"
+    )
+
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
         accelerator="ddp",
         max_epochs=args.epochs,
+        callbacks=[checkpoint_callback],
     )
 
     trainer.fit(model, train_loader, valid_loader)

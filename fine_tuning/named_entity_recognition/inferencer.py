@@ -1,4 +1,4 @@
-from fine_tuning_topic_classification import TopicModel
+from fine_tuning_ner import NERModel
 
 import fastapi
 import pytorch_lightning as pl
@@ -8,7 +8,7 @@ model = None
 
 app = FastAPI()
 
-model = TopicModel.load_from_checkpoint('klue_topic_classification.ckpt')
+model = NERModel.load_from_checkpoint('klue_ner.ckpt')
 
 @app.get("/health")
 def health_check():
@@ -18,8 +18,10 @@ def health_check():
     return {'status': 200}
 
  @app.get("/inference/{query}")
- def predict_topic(query: str):
+ def predict_ner(query: str):
     pred = model.predict(query)
+
+    return pred
 
 
 

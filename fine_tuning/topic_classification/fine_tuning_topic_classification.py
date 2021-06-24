@@ -108,8 +108,8 @@ class TopicModel(pl.LightningModule):
         return torch.LongTensor(tokens[: self.max_token_length]).unsqueeze(0)
 
     def predict(self, text):
-        pred = self.forward(self.prepare_token_ids(tokens))
-        class_idx = torch.argmax(pred[0]).item()
+        pred = self.forward(self.prepare_token_ids(tokens))[0]
+        class_idx = torch.argmax(pred).item()
 
         if self.class_dict is not None:
             label = self.class_dict[class_idx]
