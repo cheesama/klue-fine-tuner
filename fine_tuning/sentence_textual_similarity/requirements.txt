@@ -1,6 +1,7 @@
 tqdm
 fastapi
 requests
+pydantic
 
 transformers
 #datasets

@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM, TrainingArguments,
 from transformers import AutoModelForSequenceClassification
 from transformers import AdamW, get_scheduler
 from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm.auto import tqdm
 
 import torch
@@ -85,17 +86,27 @@ class SimilarityModel(pl.LightningModule):
         optim = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optim
 
-    def prepare_token_ids(self, input_data):
-        if type(input_data) == list:
-            input_data = "".join(input_data)
+    def prepare_token_ids(self, query1, query2=None):
+        if query2 is None:
+            tokens = self.tokenizer.encode(query1)
+        else:
+            tokens = self.tokenizer.encode(query1, query2)
 
-        tokens = self.tokenizer.encode(input_data)
         if len(tokens) < self.max_token_length:
             tokens += [self.tokenizer.pad_token_id] * (
                 self.max_token_length - len(tokens)
             )
 
-        return tokens[: self.max_token_length]
+        return torch.LongTensor(tokens[: self.max_token_length]).unsqueeze(0)
+
+    def predict(self, query1, query2):
+        with torch.no_grad():
+            result = self.forward(self.prepare_token_ids(query1, query2))
+            result = nn.Softmax(dim=1)(result).squeeze(0)
+            confidence = (max(result) - min(result)).item()
+            class_idx = torch.argmax(result).item()
+
+            return {'class_idx': class_idx, 'confidence': confidence}
 
     def training_step(self, batch, batch_idx):
         self.model.train()
@@ -103,7 +114,7 @@ class SimilarityModel(pl.LightningModule):
         pred_ids = self.forward(token_ids)
 
         loss = self.loss_func(pred_ids, labels.squeeze(1))
-        self.log("train/loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
 
         return loss
 
@@ -115,7 +126,7 @@ class SimilarityModel(pl.LightningModule):
             pred_ids = self.forward(token_ids)
 
             loss = self.loss_func(pred_ids, labels.squeeze(1))
-            self.log("val/loss", loss, prog_bar=True)
+            self.log("val_loss", loss, prog_bar=True)
 
             return loss
 
@@ -150,11 +161,19 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=1,
+        monitor="val_loss",
+        dirpath="./",
+        filename="klue_textual_similarity",
+    )
+
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
         accelerator="ddp",
         max_epochs=args.epochs,
+        callbacks=[checkpoint_callback],
     )
 
     trainer.fit(model, train_loader, valid_loader)

@@ -1,6 +1,6 @@
 from fine_tuning_topic_classification import TopicModel
 
-import fastapi
+from fastapi import FastAPI
 import pytorch_lightning as pl
 
 # load checkpoint
