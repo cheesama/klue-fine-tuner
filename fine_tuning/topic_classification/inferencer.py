@@ -17,8 +17,8 @@ def health_check():
 
     return {'status': 200}
 
- @app.get("/inference/{query}")
- def predict_topic(query: str):
+@app.get("/inference/{query}")
+def predict_topic(query: str):
     pred = model.predict(query)
 
 

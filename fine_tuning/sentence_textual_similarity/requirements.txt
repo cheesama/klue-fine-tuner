@@ -4,5 +4,5 @@ requests
 pydantic
 
 transformers
-#datasets
-#pytorch-lightning
+datasets
+pytorch-lightning

@@ -23,8 +23,8 @@ def health_check():
 
     return {'status': 200}
 
- @app.get("/inference/")
- def predict_(query: Query):
+@app.get("/inference/")
+def predict_(query: Query):
     pred = model.predict(query.sentence1, query.sentence2)
 
     return pred
