@@ -7,6 +7,6 @@ COPY inferencer.py .
 COPY fine_tuning_ner.py .
 COPY klue_ner.ckpt .
 
-CMD ["uvicorn","main:app","--reload","--host","0.0.0.0","--port","8000"]
+CMD ["uvicorn","inferencer:app","--reload","--host","0.0.0.0","--port","8000"]
 
 

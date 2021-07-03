@@ -7,6 +7,6 @@ COPY inferencer.py .
 COPY fine_tuning_topic_classification.py .
 COPY klue_topic_classification.ckpt .
 
-CMD ["uvicorn","main:app","--reload","--host","0.0.0.0","--port","8000"]
+CMD ["uvicorn","inferencer:app","--reload","--host","0.0.0.0","--port","8000"]
 
 
