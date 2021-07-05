@@ -3,5 +3,5 @@ fastapi
 requests
 
 transformers
-#datasets
+datasets
 pytorch-lightning

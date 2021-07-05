@@ -146,10 +146,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", default=10, type=int)
     # parser.add_argument("--batch_size", default=64, type=int) # small model, 12GB GPU based
     parser.add_argument("--batch_size", default=2, type=int)
+    parser.add_argument("--model_size", default='small', choices=['small','base','large'])
     args = parser.parse_args()
 
     # model preparation
-    model = TopicModel(lr=args.lr)
+    model = TopicModel(lr=args.lr, backbone_size=args.model_size)
 
     # data preparation
     topic_dataset = load_dataset("klue", "ynat")
