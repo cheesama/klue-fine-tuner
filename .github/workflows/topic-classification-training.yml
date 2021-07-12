@@ -23,7 +23,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        cd fine_tuning/topic_classification && \
+        cd fine_tuning/pytorch/topic_classification && \
         pip install -r requirements.txt && \
         python fine_tuning_topic_classification.py --epochs 1
+      env: 
+        TENSORDASH_EMAIL: ${{ secrets.TENSORDASH_EMAIL }}
+        TENSORDASH_PWD: ${{ secrets.TENSORDASH_PWD }}
     
