@@ -5,6 +5,7 @@ from transformers import AdamW, get_scheduler
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm.auto import tqdm
+from tensordash.torchdash import Torchdash
 
 import torch
 import torch.nn as nn
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import argparse
 import multiprocessing
+import os, sys
 
 
 class TopicDataset(Dataset):
@@ -50,6 +52,7 @@ class TopicModel(pl.LightningModule):
         lr=1e-4,
         max_token_length=256,
         topic_class_num=7,
+        max_epochs=8,
         class_dict=None,
     ):
         super().__init__()
@@ -58,6 +61,7 @@ class TopicModel(pl.LightningModule):
         self.lr = lr
         self.max_token_length = max_token_length
         self.topic_class_num = topic_class_num  # based on KLUE ynat dataset
+        self.max_epochs = max_epochs
         self.class_dict = None
 
         # model & tokenizer prepare
@@ -86,6 +90,18 @@ class TopicModel(pl.LightningModule):
         nn.init.xavier_uniform_(self.model.classifier.out_proj.weight)
 
         self.save_hyperparameters()
+
+        if (
+            os.getenv("TENSORDASH_EMAIL") is not None
+            and os.getenv("TENSORDASH_PWD") is not None
+        ):
+            self.tensordash_callback = Torchdash(
+                ModelName=f"klue-roberta-{self.backbone_size}-fine-tune",
+                email=os.getenv("TENSORDASH_EMAIL"),
+                password=os.getenv("TENSORDASH_PWD"),
+            )
+        else:
+            self.tensordash_callback = None
 
     def forward(self, x):
         pred = self.model(x).logits
@@ -125,7 +141,16 @@ class TopicModel(pl.LightningModule):
         loss = self.loss_func(pred_ids, labels.squeeze(1))
         self.log("train_loss", loss, prog_bar=True)
 
+        if self.tensordash_callback is not None:
+            self.tensordash_callback.sendLoss(loss=loss.item(), epoch=self.current_epoch, total_epochs=self.max_epochs)
+
         return loss
+
+    def training_epoch_end(self, outputs):
+        avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
+
+        if self.tensordash_callback is not None:
+            self.tensordash_callback.sendLoss(loss=avg_loss.item(), epoch=self.current_epoch, total_epochs=self.max_epochs)
 
     def validation_step(self, batch, batch_idx):
         self.model.eval()
@@ -142,14 +167,14 @@ class TopicModel(pl.LightningModule):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lr", default=1e-4, type=float)
-    parser.add_argument("--epochs", default=10, type=int)
+    parser.add_argument("--lr", default=5e-5, type=float)
+    parser.add_argument("--epochs", default=8, type=int)
     # parser.add_argument("--batch_size", default=64, type=int) # small model, 12GB GPU based
-    parser.add_argument("--batch_size", default=2, type=int)
+    parser.add_argument("--batch_size", default=4, type=int)
     args = parser.parse_args()
 
     # model preparation
-    model = TopicModel(lr=args.lr)
+    model = TopicModel(lr=args.lr, max_epochs=args.epochs)
 
     # data preparation
     topic_dataset = load_dataset("klue", "ynat")
@@ -171,18 +196,21 @@ if __name__ == "__main__":
         num_workers=multiprocessing.cpu_count(),
     )
 
+    callback_list = []
     checkpoint_callback = ModelCheckpoint(
         save_top_k=1,
         monitor="val_loss",
         dirpath="./",
         filename="klue_topic_classification",
     )
+    callback_list.append(checkpoint_callback)
+
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         progress_bar_refresh_rate=1,
         accelerator="ddp",
         max_epochs=args.epochs,
-        callbacks=[checkpoint_callback],
+        callbacks=callback_list,
     )
 
     trainer.fit(model, train_loader, valid_loader)

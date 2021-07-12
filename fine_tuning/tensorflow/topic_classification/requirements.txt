@@ -1,0 +1,8 @@
+tqdm
+fastapi
+requests
+
+transformers
+tokenizers
+tensorflow
+tensor-dash
