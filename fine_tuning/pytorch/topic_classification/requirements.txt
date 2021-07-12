@@ -5,3 +5,4 @@ requests
 transformers
 datasets
 pytorch-lightning
+tensor-dash
