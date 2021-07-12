@@ -141,9 +141,6 @@ class TopicModel(pl.LightningModule):
         loss = self.loss_func(pred_ids, labels.squeeze(1))
         self.log("train_loss", loss, prog_bar=True)
 
-        if self.tensordash_callback is not None:
-            self.tensordash_callback.sendLoss(loss=loss.item(), epoch=self.current_epoch, total_epochs=self.max_epochs)
-
         return loss
 
     def training_epoch_end(self, outputs):
