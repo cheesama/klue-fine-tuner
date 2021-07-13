@@ -1,10 +1,8 @@
 from datasets import load_dataset, load_metric
-from transformers import AutoTokenizer, AutoModelForMaskedLM, TrainingArguments, Trainer
-from transformers import TFAutoModelForSequenceClassification
+from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
 from transformers import AdamW, get_scheduler
 from tensorflow import keras
 from tensorflow.keras import layers
-from tokenizers import BertWordPieceTokenizer
 
 from tqdm.auto import tqdm
 
@@ -12,55 +10,44 @@ import argparse
 import multiprocessing
 import tensorflow as tf
 
-def create_topic_dataset(tokenizer, data_list, max_seq_length=256):
-    x = []
-    y = []
-    for data in tqdm(data_list, desc='generating dataset ...'):
-        tokens = tokenizer.encode(data['title'])
-        if len(tokens) < max_seq_length:
-            tokens += [tokenizer.pad_token_id] * (max_seq_length - len(tokens))
-        label = data['label']
+def create_topic_dataset(tokenizer, max_seq_len=256, batch_size=8):
+    topic_dataset = load_dataset('klue', 'ynat')
+    train_dataset = topic_dataset['train']
+    valid_dataset = topic_dataset['validation']
 
-        x.append(tokens)
-        y.append(label)
+    train_features={'input_ids':[], 'label': []}
+    for train_data in tqdm(train_dataset, desc='tokenizing train dataset ...'):
+        tokens = tokenizer.encode(train_data['title'])
+        if len(tokens) < max_seq_len:
+            tokens += [tokenizer.pad_token_id] * (max_seq_len - len(tokens))
+        tokens = tokens[:max_seq_len]
+        train_features['input_ids'].append(tokens)
+        train_features['label'].append(train_data['label'])
 
-    return x, y
+    valid_features={'input_ids':[], 'label': []}
+    for valid_data in tqdm(valid_dataset, desc='tokenizing valid dataset ...'):
+        tokens = tokenizer.encode(valid_data['title'])
+        if len(tokens) < max_seq_len:
+            tokens += [tokenizer.pad_token_id] * (max_seq_len - len(tokens))
+        tokens = tokens[:max_seq_len]
+        valid_features['input_ids'].append(tokens)
+        valid_features['label'].append(valid_data['label'])
 
-def create_topic_model(backbone_size="small", lr=5e-5, max_token_length=256, topic_class_num=7, class_dict=None):
-        # model & tokenizer prepare
-        if backbone_size == "small":
-            tokenizer = AutoTokenizer.from_pretrained("klue/roberta-small")
-            encoder = TFAutoModelForSequenceClassification.from_pretrained(
-                "klue/roberta-small"
-            )
-        elif backbone_size == "base":
-            tokenizer = AutoTokenizer.from_pretrained("klue/roberta-base")
-            encoder = TFAutoModelForSequenceClassification.from_pretrained(
-                "klue/roberta-base"
-            )
-        elif backbone_size == "large":
-            tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
-            encoder = TFAutoModelForSequenceClassification.from_pretrained(
-                "klue/roberta-large"
-            )
-        else:
-            raise ValueError("backbone size should be one of [small, base, large]")
+    train_tf_dataset = tf.data.Dataset.from_tensor_slices((train_features, train_features['label'])).shuffle(len(train_features)).batch(batch_size)
+    valid_tf_dataset = tf.data.Dataset.from_tensor_slices((valid_features, valid_features['label'])).batch(batch_size)
 
-        # input layer
-        input_ids = layers.Input(shape=(max_len,), dtype=tf.int32)
+    return train_tf_dataset, valid_tf_dataset
 
-        embedding = encoder(input_ids)[0]
-        pred = layers.Dense(topic_class_num, name='pred_layer')(embedding)
-        model = keras.Model(inputs=[input_ids], outputs=[pred])
+def create_topic_model(lr=5e-5, topic_class_num=7, class_dict=None):
+    # model & tokenizer prepare
+    encoder = TFAutoModelForSequenceClassification.from_pretrained("monologg/koelectra-base-discriminator", num_labels=topic_class_num)
 
-        loss = keras.losses.SparseCategoricalCrossentropy()
-        optimizer = keras.optimizers.Adam(lr=lr)
-        model.compile(optimizer=optimizer, loss=[loss])
+    loss_func = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    optimizer = keras.optimizers.Adam(lr=lr)
+    metrics_func = tf.metrics.SparseCategoricalAccuracy()
+    encoder.compile(optimizer=optimizer, loss=loss_func, metrics=metrics_func)
 
-        return model
-
-
-
+    return encoder
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -71,40 +58,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # model preparation
-    model = TopicModel(lr=args.lr)
+    model = create_topic_model(lr=args.lr)
+
+    tokenizer = AutoTokenizer.from_pretrained("monologg/koelectra-base-discriminator")
 
     # data preparation
-    topic_dataset = load_dataset("klue", "ynat")
-    train_data = topic_dataset["train"]
-    valid_data = topic_dataset["validation"]
+    train_dataset, valid_dataset = create_topic_dataset(tokenizer)
 
-    train_dataset = TopicDataset(model.tokenizer, train_data)
-    valid_dataset = TopicDataset(model.tokenizer, valid_data)
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        num_workers=multiprocessing.cpu_count(),
-        shuffle=True,
-    )
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=args.batch_size,
-        num_workers=multiprocessing.cpu_count(),
-    )
-
-    checkpoint_callback = ModelCheckpoint(
-        save_top_k=1,
-        monitor="val_loss",
-        dirpath="./",
-        filename="klue_topic_classification",
-    )
-    trainer = pl.Trainer(
-        gpus=torch.cuda.device_count(),
-        progress_bar_refresh_rate=1,
-        accelerator="ddp",
-        max_epochs=args.epochs,
-        callbacks=[checkpoint_callback],
-    )
-
-    trainer.fit(model, train_loader, valid_loader)
+    model.fit(train_dataset, validation_data=valid_dataset, epochs=args.epochs)
