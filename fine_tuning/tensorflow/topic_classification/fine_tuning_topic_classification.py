@@ -55,6 +55,10 @@ def create_topic_model(lr=5e-5, topic_class_num=7, class_dict=None):
 
     loss_func = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     optimizer = keras.optimizers.Adam(lr=lr)
+
+    # apply mixed-precision
+    optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
+
     metrics_func = tf.metrics.SparseCategoricalAccuracy()
     encoder.compile(optimizer=optimizer, loss=loss_func, metrics=metrics_func)
 
