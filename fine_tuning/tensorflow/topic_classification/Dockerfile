@@ -1,9 +1,5 @@
 FROM tensorflow/serving
 
-RUN apt-get update && apt-get install -y python3-pip
+COPY saved_model/klue_tf_finetune_topic_classification klue_tf_finetune_topic_classification
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY fine_tuning_topic_classification.py .
-
+CMD ["tensorflow_model_server", "--port=8500", "--rest_api_port=8510","--model_name=klue-tf-finetune-topic-classifier","--model_base_path=klue_tf_finetune_topic_classification"]
