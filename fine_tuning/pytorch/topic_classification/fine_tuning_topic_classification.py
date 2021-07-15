@@ -96,7 +96,7 @@ class TopicModel(pl.LightningModule):
             and os.getenv("TENSORDASH_PWD") is not None
         ):
             self.tensordash_callback = Torchdash(
-                ModelName=f"klue-roberta-{self.backbone_size}-fine-tune",
+                ModelName=f"klue-roberta-{self.backbone_size}-fine-tune-topic_classification",
                 email=os.getenv("TENSORDASH_EMAIL"),
                 password=os.getenv("TENSORDASH_PWD"),
             )
