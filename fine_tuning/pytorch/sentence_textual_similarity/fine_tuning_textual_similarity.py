@@ -133,9 +133,9 @@ class SimilarityModel(pl.LightningModule):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lr", default=5e-5)
-    parser.add_argument("--epochs", default=10)
-    parser.add_argument("--batch_size", default=2)
+    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--batch_size", type=int, default=2)
     args = parser.parse_args()
 
     # model preparation
